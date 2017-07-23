@@ -16,7 +16,7 @@ if __name__ == "__main__":
         DEVICE = "/dev/ttyUSB0"
     
     try:
-        canusb = lawicel_canusb.opencan(DEVICE, 500000)
+        canusb = lawicel_canusb.opencan(DEVICE, 1000000)
         count = 0
          
         startTime = time.time()

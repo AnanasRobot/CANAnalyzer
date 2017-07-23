@@ -72,7 +72,7 @@ class FrameList(wx.ListCtrl):
             
 
     def OnGetItemImage(self, item):
-        pass
+        return 0
 
     def OnGetItemAttr(self, item):
         return None

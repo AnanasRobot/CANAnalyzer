@@ -69,6 +69,8 @@ class CANMessagePanel(wx.Panel):
         self.arbIdBox.Add(self.arbId) 
         
         self.xtd = wx.CheckBox(self, label="Ext.")
+
+        self.rtr = wx.CheckBox(self, label="Rtr.")
         
         self.dataTypeBox = wx.BoxSizer(wx.VERTICAL)
         self.dataTypeBox.Add(wx.StaticText(self, label="Data Type") , flag = wx.EXPAND)
@@ -113,6 +115,7 @@ class CANMessagePanel(wx.Panel):
         self.hsizer.Add(self.nameBox, flag=wx.ALL, border=5) 
         self.hsizer.Add(self.arbIdBox, flag=wx.ALL, border=5) 
         self.hsizer.Add(self.xtd, flag=wx.ALL, border=5) 
+        self.hsizer.Add(self.rtr, flag=wx.ALL, border=5) 
         self.hsizer.Add(self.dataTypeBox, flag=wx.ALL, border=5) 
         self.hsizer.Add(self.endianessBox, flag=wx.ALL, border=5) 
         self.hsizer.Add(self.startBitBox, flag=wx.ALL, border=5) 
@@ -137,6 +140,8 @@ class CANMessagePanel(wx.Panel):
         startBit = self.startBit.GetValue()
         bitLength = self.bitLength.GetValue()
         value = float(self.value.GetValue())
+
+        # print "dType",dType
         bytes = CANMessage.ValueToRawData(dType, endian, startBit, bitLength, value)
         rawBytes = ["0x%x" % b for b in bytes]
         self.rawBytes.SetValues(rawBytes)
@@ -161,11 +166,11 @@ class CANMessagePanel(wx.Panel):
         self.GetParent().SetSelectedMessage(self)
         
         # re-pain background using the system highlighting color
-        self.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_HIGHLIGHT))
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT))
         self.Refresh()
         
     def Deselect(self):
-        self.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_MENU))
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_MENU))
         self.Refresh()
         self.UpdateRawBytes()
             
@@ -173,18 +178,20 @@ class CANMessagePanel(wx.Panel):
         name = self.name.GetValue()
         id = int(self.arbId.GetValue(),16)
         xtd = self.xtd.GetValue()
+        rtr = self.rtr.GetValue()
         dType = self.dataTypesVal[self.dataType.GetSelection()]
         endian = self.endianessesVal[self.endianess.GetSelection()]
         startBit = self.startBit.GetValue()
         bitLength = self.bitLength.GetValue()
         value = float(self.value.GetValue())
                 
-        return CANMessage.CANSignal(name, id, xtd, dType, endian, startBit, bitLength, value)
+        return CANMessage.CANSignal(name, id, xtd, rtr, dType, endian, startBit, bitLength, value)
       
     def SetValue(self, message):
         self.name.SetValue(message.get_name())
         self.arbId.SetValue("0x%x" % message.get_id())
         self.xtd.SetValue(message.get_xtd())
+        self.rtr.SetValue(message.get_rtr())
         self.dataType.SetSelection(self.dataTypesVal.index(message.get_dtype().lower()))
         self.endianess.SetSelection(self.endianessesVal.index(message.get_endian().lower()))
         self.startBit.SetValue(message.get_startbit())
@@ -216,8 +223,9 @@ class CANMessageListPanel(wx.ScrolledWindow):
             index = self.SelectedMessage
         
         if index >= 0:
+            # print "index",index
             msg = self.Messages[index]
-            self.sizer.Remove(msg)
+            self.sizer.Remove(index)
             self.RemoveChild(msg)
             self.Messages.remove(msg)
             msg.Destroy()
@@ -227,7 +235,8 @@ class CANMessageListPanel(wx.ScrolledWindow):
     def SetSelectedMessage(self, panel):
         # De-select previously selected message
         if self.SelectedMessage >= 0:
-            self.Messages[self.SelectedMessage].Deselect()
+            if  self.SelectedMessage < len(self.Messages):
+                self.Messages[self.SelectedMessage].Deselect()
             
         self.SelectedMessage = self.Messages.index(panel)
         

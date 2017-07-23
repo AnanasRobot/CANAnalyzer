@@ -7,6 +7,7 @@ from CANTxPanel import *
 from CANRxPanel import *
 from CANDatabasePanel import *
 
+import threading
 
 if sys.platform == "win32":
     serialports = ["COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM10", "COM11", "COM12"]
@@ -134,4 +135,3 @@ if __name__ == "__main__":
     configFile = open(configFilePath, 'w')
     config.write(configFile)
     configFile.close()
-    

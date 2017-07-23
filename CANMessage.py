@@ -32,12 +32,12 @@ class CANFrame(object):
     def get_data(self):
         n = len(self.data)
         return self.data + (0,)*(8-n)
-
-    def get_rtr(self):
-        return self.rtr
     
     def get_xtd(self):
         return self.xtd
+
+    def get_rtr(self):
+        return self.rtr
 
     def get_ndata(self):
         return self.ndata
@@ -50,7 +50,7 @@ class CANFrame(object):
     
 
 class CANSignal(object):
-    def __init__(self, name, id=0, xtd=0, dtype='u8', endian='intel', startbit=0, bitlength=32, val=0.0 ):
+    def __init__(self, name, id=0, xtd=0, rtr= 0 ,dtype='u8', endian='intel', startbit=0, bitlength=32, val=0.0 ):
         """
         name -- Signal name
         id -- Signal arbitration ID (11 Bit or 29 Bit)
@@ -64,6 +64,7 @@ class CANSignal(object):
         self._name = name
         self._id = id
         self._xtd = xtd
+        self._rtr = rtr  
         self._dtype = dtype
         self._endian = endian
         self._startbit = startbit
@@ -75,6 +76,9 @@ class CANSignal(object):
     
     def get_xtd(self):
         return self._xtd
+
+    def get_rtr(self):
+        return self._rtr
     
     def get_endian(self):
         return self._endian
@@ -97,11 +101,12 @@ class CANSignal(object):
         return self._val
     
     def to_canframe(self):
+        # print "self._dtype",self._dtype
         bytes = ValueToRawData(self._dtype, self._endian, self._startbit, self._bitlength, self._val)   
         data = tuple([b for b in bytes])
         ndata = 8
         
-        return CANFrame(self._id, self._xtd, 0, ndata, data)
+        return CANFrame(self._id, self._xtd, self._rtr, ndata, data)
     
     def from_canframe(self, frame):
         data = bytearray(frame.get_data())
@@ -141,7 +146,11 @@ def GetDataTypeSize(dataType):
 # the logical byte order is reversed or "backwards "when compared to Motorola Forwards
 #  Bit Progression from start bit: BitwiseLeft,Bytewise Left
 def ValueToRawData(dataType, endian, startBit, bitLength, value):
-        
+    # print "dataType",dataType
+    # print "endian",endian
+    # print "startBit",startBit
+    # print "bitLength",bitLength
+    # print "value",value
     if dataType == "bit":
         if value > 0.0:
             bytes = struct.pack("BBBBBBBB", 1, 0, 0, 0, 0, 0, 0, 0)

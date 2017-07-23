@@ -1,4 +1,8 @@
 import lawicel_canusb
+from canard import can
+from canard.hw import cantact
+
+import CANMessage
 import time
 import sys
 if sys.platform == "win32":
@@ -37,41 +41,41 @@ class WorkerThread(threading.Thread):
         lastErrorCheck = startTime
         while not self._abort:
             # Check for bus errors once per second
-            if (getts()-lastErrorCheck) > 1.0:
-                lastErrorCheck = getts()
-                status_response = self._canusb.get_status_flags()
+            # if (getts()-lastErrorCheck) > 1.0:
+            #     lastErrorCheck = getts()
+            #     status_response = self._canusb.get_status_flags()
                 
-                print status_response
+            #     print status_response
                 
-                if len(status_response) > 2:      
-                    # status is 'F' followed by  2 bytes of hexadecimal BCD that represent the 8 bit status
-                    status = (int(chr(status_response[1]),16) << 4) + int(chr(status_response[2]),16)
+            #     if len(status_response) > 2:      
+            #         # status is 'F' followed by  2 bytes of hexadecimal BCD that represent the 8 bit status
+            #         status = (int(chr(status_response[1]),16) << 4) + int(chr(status_response[2]),16)
                     
-                    if status > 0:
-                        status_message = ""
-                        rxFifoFull = status & 0x01
-                        if rxFifoFull > 0:
-                            status_message += " (RX Fifo full) "
-                        txFifoFull = status & 0x02
-                        if txFifoFull > 0:
-                            status_message += " (TX Fifo full) "
-                        errorWarning = status & 0x04
-                        if errorWarning > 0:
-                            status_message += " (Error Warning) "
-                        dataOverrun = status & 0x08
-                        if dataOverrun > 0:
-                            status_message += " (Data Overrun) "
-                        errorPassive = status & 0x20
-                        if errorPassive > 0:
-                            status_message += " (Error Passive) "
-                        arbitrationLost = status & 0x40
-                        if arbitrationLost > 0:
-                            status_message += " (Arbitration Lost) "
-                        busError = status & 0x80
-                        if busError > 0:
-                            status_message += " (Bus Error) "
+            #         if status > 0:
+            #             status_message = ""
+            #             rxFifoFull = status & 0x01
+            #             if rxFifoFull > 0:
+            #                 status_message += " (RX Fifo full) "
+            #             txFifoFull = status & 0x02
+            #             if txFifoFull > 0:
+            #                 status_message += " (TX Fifo full) "
+            #             errorWarning = status & 0x04
+            #             if errorWarning > 0:
+            #                 status_message += " (Error Warning) "
+            #             dataOverrun = status & 0x08
+            #             if dataOverrun > 0:
+            #                 status_message += " (Data Overrun) "
+            #             errorPassive = status & 0x20
+            #             if errorPassive > 0:
+            #                 status_message += " (Error Passive) "
+            #             arbitrationLost = status & 0x40
+            #             if arbitrationLost > 0:
+            #                 status_message += " (Arbitration Lost) "
+            #             busError = status & 0x80
+            #             if busError > 0:
+            #                 status_message += " (Bus Error) "
                         
-                        print "Bus status changed: 0x%x %s" % (status, status_message)
+            #             print "Bus status changed: 0x%x %s" % (status, status_message)
                         
             
             # Check whether it is time to send scheduled frames
@@ -85,28 +89,56 @@ class WorkerThread(threading.Thread):
                 if len(self._tx_frames) > 0:
                     # send any available frame, this will also read incoming frames
                     f = self._tx_frames.pop()
-                    r = self._canusb.transmit_frame(f)
+                    # r = self._canusb.transmit_frame(f)
+                    # print "Send Frame ",str(f)
+                    # print type(f.rtr)
+                    # print "f.rtr",f.rtr
+                    if f.rtr == 0:
+                        tempframe = can.Frame(f.msg_id, f.ndata,
+                                [f.data[0], f.data[1], f.data[2], f.data[3], f.data[4], f.data[5], f.data[6], f.data[7]],
+                                frame_type=can.FrameType.DataFrame,is_extended_id =f.xtd)
+                    elif f.rtr == 1:
+                        tempframe = can.Frame(f.msg_id, f.ndata,
+                                [f.data[0], f.data[1], f.data[2], f.data[3], f.data[4], f.data[5], f.data[6], f.data[7]],
+                                frame_type=can.FrameType.RemoteFrame,is_extended_id =f.xtd)
+                    self._canusb.send(tempframe)
+                    # print "pop a frame"
                 else:
                     # poll if there are no frames to send
-                    r = self._canusb.poll()
-            except lawicel_canusb.CANUSBError, e:
+                    # r = self._canusb.poll()
+                    # print "poll a frame"
+                    pass
+            # except lawicel_canusb.CANUSBError, e:
+            except Exception,e:
                 # re-raise error if it's not timeout
-                if str(e).find("timeout") < 0:
-                    raise
-                else:
-                    continue
-            
-            rxfifoLen = self._canusb.get_rxfifo_len()
+                # if str(e).find("timeout") < 0:
+                #     raise
+                # else:
+                #     continue
+                print e
+                print "There is some error"
+            rawframe = self._canusb.recv_buff(8192)
+            # rxfifoLen = self._canusb.get_rxfifo_len()
+            rxfifoLen = len(rawframe)
             self._lock.acquire()
-            for i in range(0, rxfifoLen):
-                f = self._canusb.get_rx_frame()
-                frames.append(f)
-                if f.get_msg_id() not in frameCounts:
-                    frameCounts[f.get_msg_id()]=1
-                else:
-                    frameCounts[f.get_msg_id()]=frameCounts[f.get_msg_id()]+1
+            if rxfifoLen != 0:
+                for i in range(0, rxfifoLen):
+                    # f = self._canusb.get_rx_frame()
+                    tempf = rawframe[i]
+                    # print "Get a Frame ",str(tempf)
                     
-                lastFramesByID[f.get_msg_id()]=f
+                    f = CANMessage.CANFrame(msg_id=(tempf.id), xtd=tempf.is_extended_id, \
+                        rtr=tempf.frame_type, ndata=tempf.dlc, \
+                        data=(tempf.data[0],tempf.data[1],tempf.data[2],tempf.data[3],\
+                            tempf.data[4],tempf.data[5],tempf.data[6],tempf.data[7]) )
+                    print "f ",str(f)
+                    frames.append(f)
+                    if f.get_msg_id() not in frameCounts:
+                        frameCounts[f.get_msg_id()]=1
+                    else:
+                        frameCounts[f.get_msg_id()]=frameCounts[f.get_msg_id()]+1
+                        
+                    lastFramesByID[f.get_msg_id()]=f
             self._lock.release()
             
                             
@@ -114,9 +146,10 @@ class WorkerThread(threading.Thread):
             # was provided
             # Only notify 5 times/s or every 100 frames to avoid 
             # over-loading the UI thread with events 
-            if (self._callback != None) and ((len(frames) % 100 == 0) or ((getts()-lastRefresh) > 0.2)): 
-                self._callback(len(frames))
-                lastRefresh = getts()
+            if rxfifoLen != 0:
+                if (self._callback != None) and ((len(frames) % 100 == 0) or ((getts()-lastRefresh) > 0.2)): 
+                    self._callback(len(frames))
+                    lastRefresh = getts()
                                                     
     def abort(self):
         self._abort = 1
@@ -137,7 +170,10 @@ class CANUSBController(object):
         self._lock = threading.Lock()
         
     def Start(self, callback):
-        self._canusb = lawicel_canusb.opencan(self._serialPort, self._speed)
+        # self._canusb = lawicel_canusb.opencan(self._serialPort, self._speed)
+        self._canusb = cantact.CantactDev(self._serialPort)
+        self._canusb.set_bitrate(1000000)
+        self._canusb.start()
         
         if not self._worker:          
             self._worker = WorkerThread(self._canusb, self._lock, callback)
@@ -151,7 +187,8 @@ class CANUSBController(object):
                 self._worker = None
         finally:
             if self._canusb:
-                self._canusb.close_channel()
+                # self._canusb.close_channel()
+                self._canusb.stop()
                 del self._canusb
                 self._canusb = None            
             
